@@ -3,8 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Timer with Inter Font (time.is style)</title>
-<!-- 引入 Inter 字体 -->
+<title>Responsive Timer with Adaptive Font Size</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;900&display=swap" rel="stylesheet" />
 <style>
   html, body {
@@ -20,9 +19,16 @@
     display: flex;
     justify-content: center;
     align-items: center;
+    padding: 0 10px;
   }
+  .timer-wrapper {
+    max-width: 80vw;
+    width: 100%;
+  }
+  /* timer 容器，宽屏横排，受控字体大小 */
   .timer {
-    font-size: 12rem;
+    width: fit-content;
+    margin: 0 auto;
     letter-spacing: 0.04em;
     font-weight: 900;
     display: flex;
@@ -37,7 +43,7 @@
   .number {
     line-height: 1;
     font-weight: 900;
-    font-variant-numeric: tabular-nums; /* 数字等宽 */
+    font-variant-numeric: tabular-nums;
   }
   .unit {
     font-size: 2.5rem;
@@ -47,40 +53,61 @@
     font-family: 'Inter', monospace, Arial, sans-serif;
     user-select: none;
   }
+  .colon {
+    font-weight: 900;
+  }
 
-  /* 手机竖屏响应式 */
+  /* 手机竖屏 */
   @media (max-width: 480px) and (orientation: portrait) {
+    .timer-wrapper {
+      max-width: none;
+      width: 100%;
+      padding: 0 5px;
+    }
     .timer {
-      font-size: 6rem;
-      gap: 12px;
+      flex-direction: column;
+      font-size: 6rem !important; /* 用JS动态设置后用 !important 保证优先 */
+      gap: 40px;
       letter-spacing: 0.03em;
+      align-items: center;
+      width: fit-content;
+      margin: 0 auto;
+    }
+    .segment {
+      flex-direction: column;
+      gap: 0.2rem;
     }
     .unit {
-      font-size: 1.5rem;
-      margin-top: 0.2rem;
+      font-size: 1.8rem !important;
+      margin-top: 0.1rem;
+    }
+    .colon {
+      display: none;
     }
   }
 </style>
 </head>
 <body>
-  <div class="timer" aria-label="Timer showing hours, minutes, and seconds" id="timer">
-    <div class="segment">
-      <div class="number" id="hours">00</div>
-      <div class="unit">H</div>
-    </div>
-    <div class="segment">
-      <div class="number">:</div>
-    </div>
-    <div class="segment">
-      <div class="number" id="minutes">00</div>
-      <div class="unit">M</div>
-    </div>
-    <div class="segment">
-      <div class="number">:</div>
-    </div>
-    <div class="segment">
-      <div class="number" id="seconds">00</div>
-      <div class="unit">S</div>
+  <div class="timer-wrapper">
+    <div class="timer" aria-label="Timer showing hours, minutes, and seconds" id="timer">
+      <div class="segment">
+        <div class="number" id="hours">00</div>
+        <div class="unit">H</div>
+      </div>
+      <div class="segment colon">
+        <div class="number">:</div>
+      </div>
+      <div class="segment">
+        <div class="number" id="minutes">00</div>
+        <div class="unit">M</div>
+      </div>
+      <div class="segment colon">
+        <div class="number">:</div>
+      </div>
+      <div class="segment">
+        <div class="number" id="seconds">00</div>
+        <div class="unit">S</div>
+      </div>
     </div>
   </div>
 
@@ -88,6 +115,8 @@
   let startTime = 0;
   let elapsed = 0;
   let timerInterval = null;
+  const timerEl = document.getElementById('timer');
+  const wrapperEl = document.querySelector('.timer-wrapper');
 
   function pad(num) {
     return num.toString().padStart(2, '0');
@@ -128,6 +157,25 @@
     pauseTimer();
     elapsed = 0;
     updateTimer();
+  }
+
+  // 动态调整桌面字体大小，让 timer 宽度最大占80vw，字体最大 12rem，最小 5rem
+  function adjustFontSize() {
+    // 手机竖屏用CSS定义，不调整字体
+    if (window.matchMedia("(max-width: 480px) and (orientation: portrait)").matches) {
+      timerEl.style.fontSize = ''; // 清空内联字体大小，交给CSS
+      return;
+    }
+
+    const maxWidth = window.innerWidth * 0.8;
+    let fontSize = 120; // 单位 rem * 1rem=16px 默认12rem=192px
+    timerEl.style.fontSize = fontSize + 'px';
+
+    // 缩小字体直到timer宽度 <= maxWidth 或字体大小达到最小值50px
+    while (timerEl.offsetWidth > maxWidth && fontSize > 50) {
+      fontSize -= 1;
+      timerEl.style.fontSize = fontSize + 'px';
+    }
   }
 
   let clickTimeout = null;
@@ -183,7 +231,10 @@
     }
   });
 
+  window.addEventListener('resize', adjustFontSize);
+
   updateTimer();
+  adjustFontSize();
 </script>
 </body>
 </html>
