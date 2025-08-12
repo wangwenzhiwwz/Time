@@ -64,8 +64,8 @@
     }
     .timer {
       flex-direction: column;
-      font-size: 6rem !important;
-      gap: 40px;
+      font-size: 10rem !important;
+      gap: 10px;
       letter-spacing: 0.03em;
       align-items: center;
       width: fit-content;
@@ -281,7 +281,7 @@
       return;
     }
     const maxWidth = window.innerWidth * 0.8;
-    let fontSize = 120;
+    let fontSize = 300;
     timerEl.style.fontSize = fontSize + 'px';
     while (timerEl.offsetWidth > maxWidth && fontSize > 50) {
       fontSize -= 1;
