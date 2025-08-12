@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Responsive Timer with Adaptive Font Size</title>
+<title>Timer & Clock Toggle by Long Press</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;900&display=swap" rel="stylesheet" />
 <style>
   html, body {
@@ -25,7 +25,6 @@
     max-width: 80vw;
     width: 100%;
   }
-  /* timer 容器，宽屏横排，受控字体大小 */
   .timer {
     width: fit-content;
     margin: 0 auto;
@@ -57,7 +56,6 @@
     font-weight: 900;
   }
 
-  /* 手机竖屏 */
   @media (max-width: 480px) and (orientation: portrait) {
     .timer-wrapper {
       max-width: none;
@@ -66,7 +64,7 @@
     }
     .timer {
       flex-direction: column;
-      font-size: 6rem !important; /* 用JS动态设置后用 !important 保证优先 */
+      font-size: 6rem !important;
       gap: 40px;
       letter-spacing: 0.03em;
       align-items: center;
@@ -92,21 +90,21 @@
     <div class="timer" aria-label="Timer showing hours, minutes, and seconds" id="timer">
       <div class="segment">
         <div class="number" id="hours">00</div>
-        <div class="unit">H</div>
+        <div class="unit" id="unit-hours">H</div>
       </div>
       <div class="segment colon">
         <div class="number">:</div>
       </div>
       <div class="segment">
         <div class="number" id="minutes">00</div>
-        <div class="unit">M</div>
+        <div class="unit" id="unit-minutes">M</div>
       </div>
       <div class="segment colon">
         <div class="number">:</div>
       </div>
       <div class="segment">
         <div class="number" id="seconds">00</div>
-        <div class="unit">S</div>
+        <div class="unit" id="unit-seconds">S</div>
       </div>
     </div>
   </div>
@@ -115,8 +113,16 @@
   let startTime = 0;
   let elapsed = 0;
   let timerInterval = null;
+  let mode = 'timer'; // 'timer' or 'clock'
   const timerEl = document.getElementById('timer');
-  const wrapperEl = document.querySelector('.timer-wrapper');
+
+  const hoursEl = document.getElementById('hours');
+  const minutesEl = document.getElementById('minutes');
+  const secondsEl = document.getElementById('seconds');
+
+  const unitHoursEl = document.getElementById('unit-hours');
+  const unitMinutesEl = document.getElementById('unit-minutes');
+  const unitSecondsEl = document.getElementById('unit-seconds');
 
   function pad(num) {
     return num.toString().padStart(2, '0');
@@ -131,15 +137,25 @@
     const m = Math.floor((totalSeconds % 3600) / 60);
     const s = totalSeconds % 60;
 
-    document.getElementById('hours').textContent = pad(h);
-    document.getElementById('minutes').textContent = pad(m);
-    document.getElementById('seconds').textContent = pad(s);
+    hoursEl.textContent = pad(h);
+    minutesEl.textContent = pad(m);
+    secondsEl.textContent = pad(s);
+  }
+
+  function updateClock() {
+    const now = new Date();
+    hoursEl.textContent = pad(now.getHours());
+    minutesEl.textContent = pad(now.getMinutes());
+    secondsEl.textContent = pad(now.getSeconds());
   }
 
   function startTimer() {
     if (!timerInterval) {
       startTime = Date.now();
-      timerInterval = setInterval(updateTimer, 250);
+      timerInterval = setInterval(() => {
+        if (mode === 'timer') updateTimer();
+        else updateClock();
+      }, 250);
       requestWakeLock();
     }
   }
@@ -148,7 +164,9 @@
     if (timerInterval) {
       clearInterval(timerInterval);
       timerInterval = null;
-      elapsed += Date.now() - startTime;
+      if (mode === 'timer') {
+        elapsed += Date.now() - startTime;
+      }
       cancelWakeLock();
     }
   }
@@ -159,46 +177,70 @@
     updateTimer();
   }
 
-  // 动态调整桌面字体大小，让 timer 宽度最大占80vw，字体最大 12rem，最小 5rem
-  function adjustFontSize() {
-    // 手机竖屏用CSS定义，不调整字体
-    if (window.matchMedia("(max-width: 480px) and (orientation: portrait)").matches) {
-      timerEl.style.fontSize = ''; // 清空内联字体大小，交给CSS
-      return;
-    }
-
-    const maxWidth = window.innerWidth * 0.8;
-    let fontSize = 120; // 单位 rem * 1rem=16px 默认12rem=192px
-    timerEl.style.fontSize = fontSize + 'px';
-
-    // 缩小字体直到timer宽度 <= maxWidth 或字体大小达到最小值50px
-    while (timerEl.offsetWidth > maxWidth && fontSize > 50) {
-      fontSize -= 1;
-      timerEl.style.fontSize = fontSize + 'px';
+  function toggleMode() {
+    pauseTimer();
+    if (mode === 'timer') {
+      mode = 'clock';
+      unitHoursEl.textContent = 'H';
+      unitMinutesEl.textContent = 'M';
+      unitSecondsEl.textContent = 'S';
+      updateClock();
+      startTimer();
+    } else {
+      mode = 'timer';
+      unitHoursEl.textContent = 'H';
+      unitMinutesEl.textContent = 'M';
+      unitSecondsEl.textContent = 'S';
+      updateTimer();
     }
   }
 
+  // Single click: start/pause timer mode only
   let clickTimeout = null;
   document.body.addEventListener('click', () => {
     if (clickTimeout === null) {
       clickTimeout = setTimeout(() => {
-        if (timerInterval) {
-          pauseTimer();
-        } else {
-          startTimer();
+        if (mode === 'timer') {
+          if (timerInterval) pauseTimer();
+          else startTimer();
         }
         clickTimeout = null;
       }, 250);
     }
   });
 
+  // Double click: reset timer mode only
   document.body.addEventListener('dblclick', () => {
     if (clickTimeout) {
       clearTimeout(clickTimeout);
       clickTimeout = null;
     }
-    resetTimer();
+    if (mode === 'timer') resetTimer();
   });
+
+  // Long press to toggle mode
+  let longPressTimer = null;
+  const longPressDuration = 1000;
+
+  function onLongPressStart() {
+    longPressTimer = setTimeout(() => {
+      toggleMode();
+      longPressTimer = null;
+    }, longPressDuration);
+  }
+  function onLongPressEnd() {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+    }
+  }
+
+  document.body.addEventListener('mousedown', onLongPressStart);
+  document.body.addEventListener('touchstart', onLongPressStart);
+  document.body.addEventListener('mouseup', onLongPressEnd);
+  document.body.addEventListener('mouseleave', onLongPressEnd);
+  document.body.addEventListener('touchend', onLongPressEnd);
+  document.body.addEventListener('touchcancel', onLongPressEnd);
 
   // Wake Lock API
   let wakeLock = null;
@@ -231,6 +273,21 @@
     }
   });
 
+  // Responsive font size: desktop max 80vw width, mobile uses CSS vertical layout
+  const timerWrapper = document.querySelector('.timer-wrapper');
+  function adjustFontSize() {
+    if (window.matchMedia("(max-width: 480px) and (orientation: portrait)").matches) {
+      timerEl.style.fontSize = '';
+      return;
+    }
+    const maxWidth = window.innerWidth * 0.8;
+    let fontSize = 120;
+    timerEl.style.fontSize = fontSize + 'px';
+    while (timerEl.offsetWidth > maxWidth && fontSize > 50) {
+      fontSize -= 1;
+      timerEl.style.fontSize = fontSize + 'px';
+    }
+  }
   window.addEventListener('resize', adjustFontSize);
 
   updateTimer();
