@@ -1,107 +1,189 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>翻页时钟计时器</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body {
-      background: #222;
-      color: #fff;
-      font-family: 'Segoe UI', 'Arial', sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      margin: 0;
-      user-select: none;
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Timer with Inter Font (time.is style)</title>
+<!-- 引入 Inter 字体 -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;900&display=swap" rel="stylesheet" />
+<style>
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: #000;
+    color: #fff;
+    font-family: 'Inter', Arial, sans-serif;
+    user-select: none;
+    cursor: pointer;
+  }
+  body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  .timer {
+    font-size: 12rem;
+    letter-spacing: 0.04em;
+    font-weight: 900;
+    display: flex;
+    gap: 25px;
+  }
+  .segment {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+  }
+  .number {
+    line-height: 1;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums; /* 数字等宽 */
+  }
+  .unit {
+    font-size: 2.5rem;
+    color: #888;
+    margin-top: 0.3rem;
+    font-weight: 700;
+    font-family: 'Inter', monospace, Arial, sans-serif;
+    user-select: none;
+  }
+
+  /* 手机竖屏响应式 */
+  @media (max-width: 480px) and (orientation: portrait) {
+    .timer {
+      font-size: 6rem;
+      gap: 12px;
+      letter-spacing: 0.03em;
     }
-    .flip-clock {
-      display: flex;
-      gap: 20px;
+    .unit {
+      font-size: 1.5rem;
+      margin-top: 0.2rem;
     }
-    .digit {
-      background: #333;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px #0008;
-      padding: 20px 16px;
-      font-size: 5rem;
-      font-weight: bold;
-      position: relative;
-      width: 80px;
-      text-align: center;
-      transition: background 0.3s;
-    }
-    .colon {
-      font-size: 5rem;
-      padding: 0 10px;
-      color: #ffb800;
-      line-height: 110px;
-    }
-    .wake-lock-status {
-      margin-top: 20px;
-      font-size: 1.1rem;
-      color: #0f0;
-    }
-  </style>
+  }
+</style>
 </head>
 <body>
-  <div class="flip-clock" id="clock">
-    <span class="digit" id="hh">00</span>
-    <span class="colon">:</span>
-    <span class="digit" id="mm">00</span>
-    <span class="colon">:</span>
-    <span class="digit" id="ss">00</span>
+  <div class="timer" aria-label="Timer showing hours, minutes, and seconds" id="timer">
+    <div class="segment">
+      <div class="number" id="hours">00</div>
+      <div class="unit">H</div>
+    </div>
+    <div class="segment">
+      <div class="number">:</div>
+    </div>
+    <div class="segment">
+      <div class="number" id="minutes">00</div>
+      <div class="unit">M</div>
+    </div>
+    <div class="segment">
+      <div class="number">:</div>
+    </div>
+    <div class="segment">
+      <div class="number" id="seconds">00</div>
+      <div class="unit">S</div>
+    </div>
   </div>
-  <div class="wake-lock-status" id="wakeLockStatus">屏幕唤醒：未启用</div>
-  <script>
-    // 翻页动画
-    function flipTo(element, newValue) {
-      if (element.textContent !== newValue) {
-        element.style.background = '#444';
-        setTimeout(() => {
-          element.textContent = newValue;
-          element.style.background = '#333';
-        }, 150); // 动画持续时间
-      }
-    }
 
-    // 更新时间
-    function updateClock() {
-      const now = new Date();
-      flipTo(document.getElementById('hh'), String(now.getHours()).padStart(2, '0'));
-      flipTo(document.getElementById('mm'), String(now.getMinutes()).padStart(2, '0'));
-      flipTo(document.getElementById('ss'), String(now.getSeconds()).padStart(2, '0'));
-    }
-    setInterval(updateClock, 1000);
-    updateClock();
+<script>
+  let startTime = 0;
+  let elapsed = 0;
+  let timerInterval = null;
 
-    // 防止屏幕息屏 - Wake Lock API
-    let wakeLock = null;
-    const wakeLockStatusEl = document.getElementById('wakeLockStatus');
-    async function requestWakeLock() {
-      if ('wakeLock' in navigator) {
-        try {
-          wakeLock = await navigator.wakeLock.request('screen');
-          wakeLockStatusEl.textContent = "屏幕唤醒：已启用";
-          wakeLock.addEventListener('release', () => {
-            wakeLockStatusEl.textContent = "屏幕唤醒：未启用";
-          });
-        } catch (err) {
-          wakeLockStatusEl.textContent = "屏幕唤醒：无法启用";
+  function pad(num) {
+    return num.toString().padStart(2, '0');
+  }
+
+  function updateTimer() {
+    const now = Date.now();
+    const totalMs = elapsed + (timerInterval ? (now - startTime) : 0);
+    const totalSeconds = Math.floor(totalMs / 1000);
+
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+
+    document.getElementById('hours').textContent = pad(h);
+    document.getElementById('minutes').textContent = pad(m);
+    document.getElementById('seconds').textContent = pad(s);
+  }
+
+  function startTimer() {
+    if (!timerInterval) {
+      startTime = Date.now();
+      timerInterval = setInterval(updateTimer, 250);
+      requestWakeLock();
+    }
+  }
+
+  function pauseTimer() {
+    if (timerInterval) {
+      clearInterval(timerInterval);
+      timerInterval = null;
+      elapsed += Date.now() - startTime;
+      cancelWakeLock();
+    }
+  }
+
+  function resetTimer() {
+    pauseTimer();
+    elapsed = 0;
+    updateTimer();
+  }
+
+  let clickTimeout = null;
+  document.body.addEventListener('click', () => {
+    if (clickTimeout === null) {
+      clickTimeout = setTimeout(() => {
+        if (timerInterval) {
+          pauseTimer();
+        } else {
+          startTimer();
         }
-      } else {
-        wakeLockStatusEl.textContent = "屏幕唤醒：该浏览器不支持";
-      }
+        clickTimeout = null;
+      }, 250);
     }
-    // 激活唤醒锁并在页面激活时重新申请
-    requestWakeLock();
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') {
-        requestWakeLock();
+  });
+
+  document.body.addEventListener('dblclick', () => {
+    if (clickTimeout) {
+      clearTimeout(clickTimeout);
+      clickTimeout = null;
+    }
+    resetTimer();
+  });
+
+  // Wake Lock API
+  let wakeLock = null;
+  async function requestWakeLock() {
+    try {
+      if ('wakeLock' in navigator) {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => {
+          console.log('Screen Wake Lock released');
+        });
+        console.log('Screen Wake Lock acquired');
       }
-    });
-  </script>
+    } catch (e) {
+      console.error(`Wake Lock error: ${e.name}, ${e.message}`);
+    }
+  }
+
+  async function cancelWakeLock() {
+    if (wakeLock) {
+      await wakeLock.release();
+      wakeLock = null;
+    }
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && timerInterval) {
+      requestWakeLock();
+    } else {
+      cancelWakeLock();
+    }
+  });
+
+  updateTimer();
+</script>
 </body>
 </html>
